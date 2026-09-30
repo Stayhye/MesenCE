@@ -9,19 +9,16 @@ CC  = mips64r5900el-ps2-elf-g++
 CXX = mips64r5900el-ps2-elf-g++
 AR  = mips64r5900el-ps2-elf-ar
 
-# PS2 Specific Optimization, Platform Flags, and Warning Bypasses
+# Ultimate PS2 Compatibility, Optimization, and Safety Flags
 PS2_FLAGS := -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer \
              -DPS2 -DABGR1555 -DVIDEO_ABGR1555 -DIOAPI_NO_64 \
+             -Dfseeko=fseek -Dftello=ftell \
+             -Doff64_t=off_t -Dstat64=stat -Dfstat64=fstat \
              -fno-expensive-optimizations -D LIBRETRO \
-             -Wno-error \
-             -Wno-unused-variable \
-             -Wno-unused-function \
-             -Wno-unused-but-set-variable \
-             -Wno-maybe-uninitialized \
-             -Wno-sign-compare
+             -w
 
-CFLAGS   = -Wall $(PS2_FLAGS)
-CXXFLAGS = -Wall --std=c++17 $(PS2_FLAGS) -I./ -I./Core -I./Utilities
+CFLAGS   = $(PS2_FLAGS)
+CXXFLAGS = --std=c++17 $(PS2_FLAGS) -I./ -I./Core -I./Utilities
 
 # Source Files
 LIBRETROSRC := Libretro/libretro.cpp Libretro/VfsFile.cpp
@@ -36,8 +33,11 @@ UTILOBJ := $(addsuffix .o,$(basename $(UTILSRC)))
 SEVENZIPSRC := $(shell find SevenZip -name '*.c')
 SEVENZIPOBJ := $(SEVENZIPSRC:.c=.o)
 
-# Optional luasocket modules exclusion
-LUASRC := $(filter-out Lua/unix.c Lua/unixdgram.c Lua/unixstream.c Lua/serial.c,$(shell find Lua -name '*.c'))
+# Exclude incompatible desktop Lua socket/networking modules for the PS2 SDK
+LUASRC := $(filter-out Lua/unix.c Lua/unixdgram.c Lua/unixstream.c Lua/serial.c \
+                      Lua/usocket.c Lua/wsocket.c Lua/inet.c Lua/tcp.c Lua/udp.c \
+                      Lua/options.c Lua/timeout.c Lua/except.c Lua/auxiliar.c Lua/luasocket.c, \
+                      $(shell find Lua -name '*.c'))
 LUAOBJ := $(LUASRC:.c=.o)
 
 ALL_OBJS := $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
