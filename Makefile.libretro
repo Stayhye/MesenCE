@@ -9,8 +9,16 @@ CC  = mips64r5900el-ps2-elf-g++
 CXX = mips64r5900el-ps2-elf-g++
 AR  = mips64r5900el-ps2-elf-ar
 
-# PS2 Specific Optimization & Platform Flags
-PS2_FLAGS := -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer -DPS2 -DABGR1555 -DVIDEO_ABGR1555 -DIOAPI_NO_64 -fno-expensive-optimizations -D LIBRETRO
+# PS2 Specific Optimization, Platform Flags, and Warning Bypasses
+PS2_FLAGS := -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer \
+             -DPS2 -DABGR1555 -DVIDEO_ABGR1555 -DIOAPI_NO_64 \
+             -fno-expensive-optimizations -D LIBRETRO \
+             -Wno-error \
+             -Wno-unused-variable \
+             -Wno-unused-function \
+             -Wno-unused-but-set-variable \
+             -Wno-maybe-uninitialized \
+             -Wno-sign-compare
 
 CFLAGS   = -Wall $(PS2_FLAGS)
 CXXFLAGS = -Wall --std=c++17 $(PS2_FLAGS) -I./ -I./Core -I./Utilities
