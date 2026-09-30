@@ -5,7 +5,7 @@
 TARGET_NAME = mesen2
 STATICLIB := $(TARGET_NAME)_libretro_ps2.a
 
-CC  = mips64r5900el-ps2-elf-g++
+CC  = mips64r5900el-ps2-elf-gcc
 CXX = mips64r5900el-ps2-elf-g++
 AR  = mips64r5900el-ps2-elf-ar
 
@@ -15,7 +15,7 @@ PS2_FLAGS := -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer 
              -Dfseeko=fseek -Dftello=ftell \
              -Doff64_t=off_t -Dstat64=stat -Dfstat64=fstat \
              -fno-expensive-optimizations -D LIBRETRO \
-             -w
+             -fpermissive -w
 
 CFLAGS   = $(PS2_FLAGS)
 CXXFLAGS = --std=c++17 $(PS2_FLAGS) -I./ -I./Core -I./Utilities
