@@ -14,6 +14,9 @@
 #ifdef _MSC_VER
 	#define VfsFseek _fseeki64
 	#define VfsFtell _ftelli64
+#elif defined(PS2) || defined(__PS2__)
+	#define VfsFseek fseek
+	#define VfsFtell ftell
 #else
 	#define VfsFseek fseeko
 	#define VfsFtell ftello
