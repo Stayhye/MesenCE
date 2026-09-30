@@ -1,184 +1,21 @@
-#Greatly simplified since we only need to build for libretro
-#Both clang & gcc work fine - clang seems to output faster code
+# ==========================================
+# PlayStation 2 Libretro Makefile for Mesen2
+# ==========================================
 
-MESENFLAGS=
+TARGET_NAME = mesen2
+STATICLIB := $(TARGET_NAME)_libretro_ps2.a
 
-#Nintendo Switch: switch_rules points CC/CXX/AR at devkitA64, so it has to be
-#included before any of the toolchain-dependent variables below are evaluated
-ifeq ($(platform),libnx)
-    include $(DEVKITPRO)/libnx/switch_rules
-endif
+CC  = mips64r5900el-ps2-elf-g++
+CXX = mips64r5900el-ps2-elf-g++
+AR  = mips64r5900el-ps2-elf-ar
 
-CXX ?= g++
-CC ?= gcc
+# PS2 Specific Optimization & Platform Flags
+PS2_FLAGS := -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer -DPS2 -DABGR1555 -DVIDEO_ABGR1555 -DIOAPI_NO_64 -fno-expensive-optimizations -D LIBRETRO
 
-#`c++`/`g++-14`/... all report GCC, so detect clang instead of matching on the name
-USE_GCC ?= $(shell$(CXX) --version | head -1 | grep -qi clang && echo false || echo true)
+CFLAGS   = -Wall $(PS2_FLAGS)
+CXXFLAGS = -Wall --std=c++17 $(PS2_FLAGS) -I./ -I./Core -I./Utilities
 
-DEBUG ?= 0
-HAVE_LTO ?= 1
-STATICLINK ?= true
-
-LINKCHECKUNRESOLVED := -Wl,-z,defs
-
-LINKOPTIONS :=
-LIBS :=
-MESENOS :=
-UNAME_S := $(shell uname -s)
-MACHINE := $(shell$(CXX) -dumpmachine)
-
-#The Windows core is cross-compiled from Linux (MXE), so the target triple -
-#not uname - decides whether this is a Windows build
-ifeq ($(platform),libnx)
-    #Nintendo Switch builds a static library that gets linked into RetroArch
-    MESENOS := libnx
-    STATICLIB := mesen2_libretro_libnx.a
-    #gnu++17 rather than the global --std=c++17 (CXXFLAGS puts MESENFLAGS after
-    #it, so this wins). __STRICT_ANSI__ is what hurts here, in two places:
-    #newlib keeps __BSD_VISIBLE/__MISC_VISIBLE at 0 without _DEFAULT_SOURCE,
-    #which loses <sys/select.h> and u_long for Utilities/Socket.cpp, and gcc's
-    #own limits.h withholds LLONG_MAX in C++ mode, which sends Lua/luaconf.h
-    #into "#error Compiler does not support 'long long'". glibc targets notice
-    #neither, since glibc turns _DEFAULT_SOURCE on whatever the dialect.
-    MESENFLAGS += -DSWITCH=1 -D__SWITCH__ -DHAVE_LIBNX -D_LARGEFILE_SOURCE -std=gnu++17
-    MESENFLAGS += -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
-    MESENFLAGS += -ffunction-sections -fdata-sections -ftls-model=local-exec
-    MESENFLAGS += -I$(DEVKITPRO)/libnx/include -I$(DEVKITPRO)/portlibs/switch/include
-    HAVE_LTO := 0
-    STATICLINK := false
-    LINKCHECKUNRESOLVED :=
-else ifeq ($(platform),ps2)
-    PTR64 = 0
-    TARGET_NAME = mesen2
-    STATICLIB := $(TARGET_NAME)_libretro_$(platform).a
-    CC = mips64r5900el-ps2-elf-g++
-    CXX = mips64r5900el-ps2-elf-g++
-    AR = mips64r5900el-ps2-elf-ar
-    CCOMFLAGS += -Wno-register
-    CFLAGS += -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer -DPS2 -DABGR1555 -fno-expensive-optimizations
-    CXXFLAGS += -O3 -march=r5900 -mtune=r5900 -G0 -ffast-math -fomit-frame-pointer -DPS2 -DABGR1555 -fno-expensive-optimizations
-    CPPONLYFLAGS += -std=gnu++98 -x c++ -fexceptions -Wno-template-id-cdtor 
-    LDFLAGS += -L$(PS2DEV)/ps2sdk/ports/lib -L$(PS2DEV)/ps2sdk/ee/lib
-    STATIC_LINKING=1
-    STATIC_LINKING_LINK=1
-    PLATFORM_DEFINES := -DPS2 -DVIDEO_ABGR1555 -DIOAPI_NO_64 -x c++
-    FRONTEND_SUPPORTS_RGB565 = 0
-    MESENOS := ps2
-    HAVE_LTO := 0
-    STATICLINK := true
-    LINKCHECKUNRESOLVED :=
-else ifneq ($(findstring mingw,$(MACHINE)),)
-    MESENOS := windows
-    SHAREDLIB := mesen2_libretro.dll
-    LINKCHECKUNRESOLVED := -Wl,--no-undefined
-    STATICLINK := true
-    LINKOPTIONS += -static
-    #winmm for timeBeginPeriod/timeEndPeriod (PlatformUtilities)
-    LIBS += -lws2_32 -liphlpapi -lole32 -loleaut32 -luuid -lwinmm
-else ifeq ($(UNAME_S),Linux)
-    MESENOS := linux
-    SHAREDLIB := mesen2_libretro.so
-else ifeq ($(UNAME_S),Darwin)
-    MESENOS := osx
-    ifeq ($(platform),ios9)
-        LIBRETRO_APPLE_PLATFORM := arm64-apple-ios9.0
-        LIBRETRO_APPLE_ISYSROOT := $(shell xcodebuild -version -sdk iphoneos Path)
-        SHAREDLIB := mesen2_libretro_ios.dylib
-        MESENFLAGS += -target $(LIBRETRO_APPLE_PLATFORM)
-        MESENFLAGS += -isysroot $(LIBRETRO_APPLE_ISYSROOT)
-      MESENFLAGS += -DLUA_USE_IOS
-    else ifeq ($(platform),ios-arm64)
-        LIBRETRO_APPLE_PLATFORM := arm64-apple-ios13.0
-        LIBRETRO_APPLE_ISYSROOT := $(shell xcodebuild -version -sdk iphoneos Path)
-        SHAREDLIB := mesen2_libretro_ios.dylib
-        MESENFLAGS += -target $(LIBRETRO_APPLE_PLATFORM)
-        MESENFLAGS += -isysroot $(LIBRETRO_APPLE_ISYSROOT)
-      MESENFLAGS += -DLUA_USE_IOS
-    else ifeq ($(platform),tvos-arm64)
-        LIBRETRO_APPLE_PLATFORM := arm64-apple-tvos13.0
-        LIBRETRO_APPLE_ISYSROOT := $(shell xcodebuild -version -sdk appletvos Path)
-        SHAREDLIB := mesen2_libretro_tvos.dylib
-        MESENFLAGS += -target $(LIBRETRO_APPLE_PLATFORM)
-        MESENFLAGS += -isysroot $(LIBRETRO_APPLE_ISYSROOT)
-      MESENFLAGS += -DLUA_USE_IOS
-    else ifeq ($(platform),osx)
-        LIBRETRO_APPLE_ISYSROOT := $(shell xcodebuild -version -sdk macosx Path)
-        SHAREDLIB := mesen2_libretro.dylib
-        MESENFLAGS += -mmacosx-version-min=10.15
-        MESENFLAGS += -isysroot $(LIBRETRO_APPLE_ISYSROOT)
-        ifeq ($(arch),arm)
-            LIBRETRO_APPLE_PLATFORM := arm64-apple-macos10.15
-        else
-            LIBRETRO_APPLE_PLATFORM := x86_64-apple-macos10.15
-        endif
-        MESENFLAGS += -target $(LIBRETRO_APPLE_PLATFORM)
-    else
-        SHAREDLIB := mesen2_libretro.dylib
-    endif
-    HAVE_LTO := 0
-    STATICLINK := false
-    LINKCHECKUNRESOLVED :=
-else ifeq ($(OS),Windows_NT)
-    MESENOS := windows
-    SHAREDLIB := mesen2_libretro.dll
-endif
-
-ifneq ($(filter x86_64\%,$(MACHINE)),)
-    MESENPLATFORM := $(MESENOS)-x64
-endif
-ifneq ($(filter arm64\% aarch64\%,$(MACHINE)),)
-    MESENPLATFORM := $(MESENOS)-arm64
-endif
-
-#spng turns its x86 SIMD paths on for 32-bit x86 as well, and there they do not
-#even parse: immintrin.h reaches avx512bf16intrin.h, which asks for _Float16 and
-#__bf16, and gcc answers "'_Float16' is not supported on this target" because a
-#plain i686 has no SSE2. PNG decoding only carries screenshots and the like, so
-#dropping the optimisation costs less than moving the whole core's baseline up.
-#The target triple cannot answer the question - a 64-bit gcc driven with -m32
-#keeps reporting its own - so ask the preprocessor.
-ifneq ($(shell echo \vert{}$(CXX) -E -dM - 2>/dev/null | grep -c __i386__),0)
-    MESENFLAGS += -DSPNG_DISABLE_OPT
-endif
-
-ifeq ($(DEBUG),0)
-    MESENFLAGS += -O3
-    ifeq ($(HAVE_LTO),1)
-        MESENFLAGS += -DHAVE_LTO
-        ifneq ($(USE_GCC),true)
-            MESENFLAGS += -flto=thin
-        else
-            MESENFLAGS += -flto=auto
-        endif
-    endif
-else
-    MESENFLAGS += -O0 -g
-    # Note: if compiling with a sanitizer, you will likely need to `LD_PRELOAD` the library `libMesenCore.so` will be linked against.
-    ifneq ($(SANITIZER),)
-        ifeq ($(SANITIZER),address)
-            # Currently, `-fsanitize=address` is not supported together with `-fsanitize=thread`
-            MESENFLAGS += -fsanitize=address
-        else ifeq ($(SANITIZER),thread)
-            # Currently, `-fsanitize=address` is not supported together with `-fsanitize=thread`
-            MESENFLAGS += -fsanitize=thread
-        else
-$(warning Unrecognised$$(SANITIZER) value:$(SANITIZER))
-        endif
-        # `-Wl,-z,defs` is incompatible with the sanitizers in a shared lib, unless the sanitizer libs are linked dynamically; hence `-shared-libsan` (not the default for Clang).
-        # It seems impossible to link dynamically against two sanitizers at the same time, but that might be a Clang limitation.
-        ifneq ($(USE_GCC),true)
-            MESENFLAGS += -shared-libsan
-        endif
-    endif
-endif
-
-ifneq ($(STATICLINK),false)
-    LINKOPTIONS += -static-libgcc -static-libstdc++ 
-endif
-
-CXXFLAGS = -fPIC -Wall --std=c++17 $(MESENFLAGS) -I$(realpath ./) -I $(realpath ./Core) -I$(realpath ./Utilities)
-CFLAGS = -fPIC -Wall $(MESENFLAGS)
-
+# Source Files
 LIBRETROSRC := Libretro/libretro.cpp Libretro/VfsFile.cpp
 LIBRETROOBJ := $(LIBRETROSRC:.cpp=.o)
 
@@ -186,43 +23,28 @@ CORESRC := $(shell find Core -name '*.cpp')
 COREOBJ := $(CORESRC:.cpp=.o)
 
 UTILSRC := $(shell find Utilities -name '*.cpp' -o -name '*.c')
-UTILOBJ := $(addsuffix .o,$(basename$(UTILSRC)))
+UTILOBJ := $(addsuffix .o,$(basename $(UTILSRC)))
 
 SEVENZIPSRC := $(shell find SevenZip -name '*.c')
 SEVENZIPOBJ := $(SEVENZIPSRC:.c=.o)
 
-#unix.c/unixdgram.c/unixstream.c/serial.c are optional luasocket modules that
-#are never registered by the core (and don't build on Windows)
+# Optional luasocket modules exclusion
 LUASRC := $(filter-out Lua/unix.c Lua/unixdgram.c Lua/unixstream.c Lua/serial.c,$(shell find Lua -name '*.c'))
 LUAOBJ := $(LUASRC:.c=.o)
 
-ifeq ($(platform),unix)
-LDFLAGS += -Wl,--version-script=Libretro/link.T -Wl,--no-undefined
-endif
-
-libretro: CFLAGS   += -D LIBRETRO
-libretro: CXXFLAGS += -D LIBRETRO
+ALL_OBJS := $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
 
 all: libretro
 
-ifneq (,$(findstring$(platform),libnx ps2))
-libretro: $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ)$(AR) rcs $(STATICLIB)$^
-else
-libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ)$(LUAOBJ) $(UTILOBJ)$(COREOBJ)
-	$(CXX)$(CXXFLAGS) $(LINKOPTIONS)$(LINKCHECKUNRESOLVED) $(LDFLAGS) -shared -o$(SHAREDLIB) $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ) -pthread$(LIBS)
-endif
+libretro: $(ALL_OBJS)
+	$(AR) rcs $(STATICLIB) $^
 
 %.o: %.c
-	$(CC)$(CFLAGS) -c $< -o$@
-    
+	$(CC) $(CFLAGS) -c $< -o $@
+
 %.o: %.cpp
-	$(CXX)$(CXXFLAGS) -c $< -o$@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(COREOBJ)
-	rm -f $(UTILOBJ)
-	rm -f $(SEVENZIPOBJ)
-	rm -f $(LUAOBJ)
-	rm -f $(SHAREDLIB)
+	rm -f $(ALL_OBJS)
 	rm -f $(STATICLIB)
-	rm -f $(LIBRETROOBJ)
