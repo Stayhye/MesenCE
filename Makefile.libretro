@@ -132,7 +132,7 @@ endif
 
 #spng turns its x86 SIMD paths on for 32-bit x86 as well, and there they do not
 #even parse: immintrin.h reaches avx512bf16intrin.h, which asks for _Float16 and
-#-__bf16, and gcc answers "'_Float16' is not supported on this target" because a
+#__bf16, and gcc answers "'_Float16' is not supported on this target" because a
 #plain i686 has no SSE2. PNG decoding only carries screenshots and the like, so
 #dropping the optimisation costs less than moving the whole core's baseline up.
 #The target triple cannot answer the question - a 64-bit gcc driven with -m32
@@ -205,25 +205,24 @@ libretro: CXXFLAGS += -D LIBRETRO
 
 all: libretro
 
-ifneq (,$(findstring $(platform),libnx ps2))
-libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
-	$(AR) rcs $(STATICLIB) $^
+ifneq (,$(findstring$(platform),libnx ps2))
+libretro: $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ)$(AR) rcs $(STATICLIB)$^
 else
-libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
-	$(CXX) $(CXXFLAGS) $(LINKOPTIONS) $(LINKCHECKUNRESOLVED) $(LDFLAGS) -shared -o $(SHAREDLIB) $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ) -pthread $(LIBS)
+libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ)$(LUAOBJ) $(UTILOBJ)$(COREOBJ)
+	$(CXX)$(CXXFLAGS) $(LINKOPTIONS)$(LINKCHECKUNRESOLVED) $(LDFLAGS) -shared -o$(SHAREDLIB) $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ) -pthread$(LIBS)
 endif
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC)$(CFLAGS) -c $< -o$@
     
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX)$(CXXFLAGS) -c $< -o$@
 
 clean:
-    rm -f $(COREOBJ)
-    rm -f $(UTILOBJ)
-    rm -f $(SEVENZIPOBJ)
-    rm -f $(LUAOBJ)
-    rm -f $(SHAREDLIB)
-    rm -f $(STATICLIB)
-    rm -f $(LIBRETROOBJ)
+	rm -f $(COREOBJ)
+	rm -f $(UTILOBJ)
+	rm -f $(SEVENZIPOBJ)
+	rm -f $(LUAOBJ)
+	rm -f $(SHAREDLIB)
+	rm -f $(STATICLIB)
+	rm -f $(LIBRETROOBJ)
