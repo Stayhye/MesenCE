@@ -205,18 +205,19 @@ libretro: CXXFLAGS += -D LIBRETRO
 
 all: libretro
 
-ifneq (,$(findstring$(platform),libnx ps2))
-libretro: $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ)$(AR) rcs $(STATICLIB)$^
+ifneq (,$(findstring $(platform),libnx ps2))
+libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
+	$(AR) rcs $(STATICLIB) $^
 else
-libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ)$(LUAOBJ) $(UTILOBJ)$(COREOBJ)
-    $(CXX)$(CXXFLAGS) $(LINKOPTIONS)$(LINKCHECKUNRESOLVED) $(LDFLAGS) -shared -o$(SHAREDLIB) $(LIBRETROOBJ)$(SEVENZIPOBJ) $(LUAOBJ)$(UTILOBJ) $(COREOBJ) -pthread$(LIBS)
+libretro: $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ)
+	$(CXX) $(CXXFLAGS) $(LINKOPTIONS) $(LINKCHECKUNRESOLVED) $(LDFLAGS) -shared -o $(SHAREDLIB) $(LIBRETROOBJ) $(SEVENZIPOBJ) $(LUAOBJ) $(UTILOBJ) $(COREOBJ) -pthread $(LIBS)
 endif
 
 %.o: %.c
-    $(CC)$(CFLAGS) -c $< -o$@
+	$(CC) $(CFLAGS) -c $< -o $@
     
 %.o: %.cpp
-    $(CXX)$(CXXFLAGS) -c $< -o$@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
     rm -f $(COREOBJ)
